@@ -272,7 +272,26 @@
 
 <!-- ПРОФИЛЬ -->
 <div class="section" id="tab-profile">
-  <div class="section-title">Реферальная программа</div>
+  <div class="section-title">Баланс</div>
+  <div class="balance-card" style="margin-bottom:16px">
+    <div class="label">Твой баланс</div>
+    <div class="amount" id="profileBalance">0 руб.</div>
+  </div>
+  <button class="btn btn-primary" onclick="showProfileTopup()" style="margin-bottom:16px">💳 Пополнить баланс</button>
+  <div id="profileTopupBlock" style="display:none;background:rgba(255,255,255,0.07);border-radius:16px;padding:16px;margin-bottom:16px">
+    <div style="font-size:14px;font-weight:600;margin-bottom:10px">Введи сумму пополнения</div>
+    <input type="number" id="profileTopupAmount" placeholder="Сумма в рублях" style="width:100%;background:rgba(255,255,255,0.08);border:1px solid rgba(255,255,255,0.15);border-radius:10px;padding:10px 12px;color:#fff;font-size:14px;outline:none;margin-bottom:10px">
+    <button class="btn btn-primary" style="margin-bottom:8px" onclick="requestProfileTopup()">Далее</button>
+    <button class="btn btn-secondary" onclick="document.getElementById('profileTopupBlock').style.display='none'">Отмена</button>
+  </div>
+  <div id="profileCardBlock" style="display:none;background:rgba(255,255,255,0.07);border-radius:16px;padding:16px;margin-bottom:16px">
+    <div style="font-size:14px;font-weight:600;margin-bottom:8px">Переведи на карту:</div>
+    <div style="font-size:18px;font-weight:700;letter-spacing:2px;color:#a855f7;cursor:pointer;margin-bottom:8px" onclick="navigator.clipboard.writeText('2204320614852905').then(()=>showToast('✅ Скопировано!'))">2204320614852905</div>
+    <div id="profileAmountShow" style="font-size:13px;opacity:0.7;margin-bottom:12px"></div>
+    <button class="btn btn-primary" onclick="confirmProfileTopup()">✅ Я оплатил</button>
+    <button class="btn btn-secondary" style="margin-top:8px" onclick="document.getElementById('profileCardBlock').style.display='none'">Отмена</button>
+  </div>
+  <div class="section-title" style="margin-top:8px">Реферальная программа</div>
   <div class="ref-box">
     <label>Твоя ссылка — за каждого друга +10 руб.</label>
     <div class="ref-link" id="refLink" onclick="copyRef()">Загрузка...</div>
@@ -280,6 +299,16 @@
   <button class="btn btn-secondary" onclick="copyRef()">📋 Скопировать ссылку</button>
 </div>
 
+<div id="payCardModal" style="display:none;position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.7);z-index:100;display:none;align-items:center;justify-content:center;padding:20px">
+  <div style="background:#1e1e3a;border-radius:16px;padding:20px;width:100%">
+    <div style="font-size:16px;font-weight:700;margin-bottom:12px">💳 Оплата картой</div>
+    <div id="payCardTotal" style="font-size:15px;color:#a855f7;font-weight:600;margin-bottom:12px"></div>
+    <div style="font-size:13px;opacity:0.7;margin-bottom:8px">Переведи на карту:</div>
+    <div style="font-size:18px;font-weight:700;letter-spacing:2px;color:#a855f7;cursor:pointer;margin-bottom:16px" onclick="navigator.clipboard.writeText('2204320614852905').then(()=>showToast('✅ Скопировано!'))">2204320614852905</div>
+    <button class="btn btn-primary" onclick="confirmPayCard()" style="margin-bottom:8px">✅ Я оплатил</button>
+    <button class="btn btn-secondary" onclick="document.getElementById('payCardModal').style.display='none'">Отмена</button>
+  </div>
+</div>
 <div class="toast" id="toast"></div>
 
 <script>
@@ -318,6 +347,10 @@ function switchTab(name) {
   document.getElementById('tab-' + name).classList.add('active');
   event.target.classList.add('active');
   if (name === 'cart') renderCart();
+  if (name === 'profile') {
+    const balance = parseFloat(localStorage.getItem('balance') || '0');
+    document.getElementById('profileBalance').textContent = balance + ' руб.';
+  }
 }
 
 function renderGifts() {
@@ -442,17 +475,73 @@ function payWithBalance() {
 
 function payWithCard() {
   const total = cart.reduce((s, i) => s + i.price, 0);
+  // Show card number modal
+  document.getElementById('payCardTotal').textContent = 'Итого: ' + total + ' руб.';
+  document.getElementById('payCardModal').style.display = 'block';
+}
+function confirmPayCard() {
+  const total = cart.reduce((s, i) => s + i.price, 0);
   const data = JSON.stringify({ action: 'pay_card', cart, total, userId, username });
   tg.sendData(data);
-  showToast('✅ Запрос отправлен!');
   cart = [];
   saveCart();
   renderCart();
+  document.getElementById('payCardModal').style.display = 'none';
+  showToast('✅ Запрос отправлен! Ожидай подтверждения.');
 }
 
 function copyRef() {
   const link = `https://t.me/${BOT_USERNAME}?start=ref_${userId}`;
   navigator.clipboard.writeText(link).then(() => showToast('✅ Ссылка скопирована!'));
+}
+
+let topupAmountValue = 0;
+let profileTopupValue = 0;
+
+function showProfileTopup() {
+  document.getElementById('profileTopupBlock').style.display = 'block';
+}
+function requestProfileTopup() {
+  const val = parseFloat(document.getElementById('profileTopupAmount').value);
+  if (!val || val <= 0) { showToast('Введи корректную сумму'); return; }
+  profileTopupValue = val;
+  document.getElementById('profileTopupBlock').style.display = 'none';
+  document.getElementById('profileAmountShow').textContent = 'Сумма: ' + val + ' руб.';
+  document.getElementById('profileCardBlock').style.display = 'block';
+}
+function confirmProfileTopup() {
+  const data = JSON.stringify({ action: 'topup_request', amount: profileTopupValue, userId, username });
+  tg.sendData(data);
+  document.getElementById('profileCardBlock').style.display = 'none';
+  showToast('✅ Запрос отправлен! Ожидай подтверждения.');
+}
+
+function showTopup() {
+  document.getElementById('topupModal').style.display = 'block';
+}
+function hideTopup() {
+  document.getElementById('topupModal').style.display = 'none';
+  document.getElementById('topupAmount').value = '';
+}
+function requestTopup() {
+  const val = parseFloat(document.getElementById('topupAmount').value);
+  if (!val || val <= 0) { showToast('Введи корректную сумму'); return; }
+  topupAmountValue = val;
+  hideTopup();
+  document.getElementById('topupAmountShow').textContent = 'Сумма: ' + val + ' руб.';
+  document.getElementById('topupCard').style.display = 'block';
+}
+function hideTopupCard() {
+  document.getElementById('topupCard').style.display = 'none';
+}
+function copyCard() {
+  navigator.clipboard.writeText('2204320614852905').then(() => showToast('✅ Номер карты скопирован!'));
+}
+function confirmTopup() {
+  const data = JSON.stringify({ action: 'topup_request', amount: topupAmountValue, userId, username });
+  tg.sendData(data);
+  hideTopupCard();
+  showToast('✅ Запрос отправлен! Ожидай подтверждения.');
 }
 
 function showToast(msg) {
