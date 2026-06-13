@@ -1,0 +1,466 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Gifts Watcher</title>
+<script src="https://telegram.org/js/telegram-web-app.js"></script>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    background: var(--tg-theme-bg-color, #1a1a2e);
+    color: var(--tg-theme-text-color, #fff);
+    min-height: 100vh;
+    padding: 16px;
+  }
+
+  .header {
+    text-align: center;
+    padding: 20px 0 24px;
+  }
+  .header h1 { font-size: 22px; font-weight: 700; margin-bottom: 4px; }
+  .header p { font-size: 13px; opacity: 0.6; }
+
+  .balance-card {
+    background: linear-gradient(135deg, #6c63ff, #a855f7);
+    border-radius: 16px;
+    padding: 20px;
+    margin-bottom: 20px;
+    text-align: center;
+  }
+  .balance-card .label { font-size: 12px; opacity: 0.8; margin-bottom: 4px; }
+  .balance-card .amount { font-size: 32px; font-weight: 700; }
+  .balance-card .sub { font-size: 12px; opacity: 0.7; margin-top: 4px; }
+
+  .tabs {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 20px;
+    background: rgba(255,255,255,0.05);
+    border-radius: 12px;
+    padding: 4px;
+  }
+  .tab {
+    flex: 1;
+    padding: 10px;
+    border: none;
+    border-radius: 10px;
+    background: transparent;
+    color: var(--tg-theme-text-color, #fff);
+    font-size: 13px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: background 0.2s;
+    opacity: 0.6;
+  }
+  .tab.active {
+    background: rgba(255,255,255,0.15);
+    opacity: 1;
+  }
+
+  .section { display: none; }
+  .section.active { display: block; }
+
+  .section-title {
+    font-size: 13px;
+    font-weight: 600;
+    opacity: 0.5;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-bottom: 12px;
+  }
+
+  .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 20px; }
+  .grid-1 { grid-template-columns: 1fr; }
+
+  .card {
+    background: rgba(255,255,255,0.07);
+    border-radius: 14px;
+    padding: 16px;
+    cursor: pointer;
+    border: 2px solid transparent;
+    transition: all 0.15s;
+    position: relative;
+  }
+  .card:active { transform: scale(0.97); }
+  .card.selected { border-color: #a855f7; background: rgba(168,85,247,0.15); }
+  .card .name { font-size: 14px; font-weight: 600; margin-bottom: 4px; }
+  .card .price { font-size: 13px; color: #a855f7; font-weight: 700; }
+  .card .badge {
+    position: absolute; top: 10px; right: 10px;
+    background: #a855f7; color: #fff;
+    border-radius: 50%; width: 20px; height: 20px;
+    font-size: 11px; display: none;
+    align-items: center; justify-content: center;
+  }
+  .card.selected .badge { display: flex; }
+
+  .for-other {
+    background: rgba(255,255,255,0.05);
+    border-radius: 14px;
+    padding: 14px;
+    margin-bottom: 16px;
+  }
+  .for-other label { font-size: 13px; opacity: 0.7; display: block; margin-bottom: 8px; }
+  .for-other input {
+    width: 100%;
+    background: rgba(255,255,255,0.08);
+    border: 1px solid rgba(255,255,255,0.15);
+    border-radius: 10px;
+    padding: 10px 12px;
+    color: var(--tg-theme-text-color, #fff);
+    font-size: 14px;
+    outline: none;
+  }
+  .for-other input:focus { border-color: #a855f7; }
+
+  .cart-empty { text-align: center; padding: 40px 0; opacity: 0.4; font-size: 15px; }
+
+  .cart-item {
+    background: rgba(255,255,255,0.07);
+    border-radius: 12px;
+    padding: 14px;
+    margin-bottom: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+  .cart-item .item-name { font-size: 14px; font-weight: 500; }
+  .cart-item .item-price { font-size: 14px; color: #a855f7; font-weight: 700; }
+  .cart-item .remove {
+    background: rgba(255,80,80,0.15);
+    border: none; border-radius: 8px;
+    color: #ff5050; padding: 6px 10px;
+    cursor: pointer; font-size: 13px; margin-left: 10px;
+  }
+
+  .cart-total {
+    background: rgba(255,255,255,0.05);
+    border-radius: 12px;
+    padding: 14px;
+    display: flex;
+    justify-content: space-between;
+    margin: 16px 0;
+    font-size: 15px;
+    font-weight: 600;
+  }
+
+  .btn {
+    width: 100%;
+    padding: 15px;
+    border: none;
+    border-radius: 14px;
+    font-size: 15px;
+    font-weight: 600;
+    cursor: pointer;
+    margin-bottom: 10px;
+    transition: opacity 0.15s;
+  }
+  .btn:active { opacity: 0.8; }
+  .btn-primary { background: linear-gradient(135deg, #6c63ff, #a855f7); color: #fff; }
+  .btn-secondary { background: rgba(255,255,255,0.1); color: var(--tg-theme-text-color, #fff); }
+  .btn-danger { background: rgba(255,80,80,0.15); color: #ff5050; }
+  .btn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+  .ref-box {
+    background: rgba(255,255,255,0.05);
+    border-radius: 12px;
+    padding: 14px;
+    margin-bottom: 16px;
+  }
+  .ref-box label { font-size: 12px; opacity: 0.5; display: block; margin-bottom: 6px; }
+  .ref-link {
+    font-size: 13px;
+    word-break: break-all;
+    color: #a855f7;
+    cursor: pointer;
+  }
+
+  .toast {
+    position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%);
+    background: #333; color: #fff; padding: 12px 20px;
+    border-radius: 12px; font-size: 14px;
+    opacity: 0; transition: opacity 0.3s; pointer-events: none; z-index: 999;
+    white-space: nowrap;
+  }
+  .toast.show { opacity: 1; }
+
+  .comment-box { margin-bottom: 16px; }
+  .comment-box label { font-size: 13px; opacity: 0.7; display: block; margin-bottom: 8px; }
+  .comment-box textarea {
+    width: 100%;
+    background: rgba(255,255,255,0.08);
+    border: 1px solid rgba(255,255,255,0.15);
+    border-radius: 10px;
+    padding: 10px 12px;
+    color: var(--tg-theme-text-color, #fff);
+    font-size: 14px;
+    outline: none;
+    resize: none;
+    height: 80px;
+  }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <h1>🎁 Gifts Watcher</h1>
+  <p>Выбери подарок или звёзды</p>
+</div>
+
+<div class="balance-card">
+  <div class="label">Твой баланс</div>
+  <div class="amount" id="balanceAmount">0 руб.</div>
+  <div class="sub" id="balanceSub">Пополняй через реферальную программу</div>
+</div>
+
+<div class="tabs">
+  <button class="tab active" onclick="switchTab('stars')">⭐️ Звёзды</button>
+  <button class="tab" onclick="switchTab('gifts')">🎁 Подарки</button>
+  <button class="tab" onclick="switchTab('cart')">🛒 Корзина</button>
+  <button class="tab" onclick="switchTab('profile')">👤 Профиль</button>
+</div>
+
+<!-- ЗВЁЗДЫ -->
+<div class="section active" id="tab-stars">
+  <div class="section-title">Выбери количество</div>
+  <div class="grid grid-1">
+    <div class="card" onclick="selectStars(this, '50', 70)">
+      <div class="name">50 ⭐️</div>
+      <div class="price">70 руб.</div>
+      <div class="badge">✓</div>
+    </div>
+    <div class="card" onclick="selectStars(this, '100', 120)">
+      <div class="name">100 ⭐️</div>
+      <div class="price">120 руб.</div>
+      <div class="badge">✓</div>
+    </div>
+    <div class="card" onclick="selectStars(this, '150', 170)">
+      <div class="name">150 ⭐️</div>
+      <div class="price">170 руб.</div>
+      <div class="badge">✓</div>
+    </div>
+  </div>
+  <div class="for-other">
+    <label>Отправить другому (необязательно)</label>
+    <input type="text" id="starsTarget" placeholder="@username">
+  </div>
+  <button class="btn btn-primary" onclick="addStarsToCart()">Добавить в корзину</button>
+</div>
+
+<!-- ПОДАРКИ -->
+<div class="section" id="tab-gifts">
+  <div class="section-title">Выбери подарок — 70 руб.</div>
+  <div class="grid" id="giftsGrid"></div>
+  <div class="for-other">
+    <label>Отправить другому (необязательно)</label>
+    <input type="text" id="giftTarget" placeholder="@username">
+  </div>
+  <div class="comment-box">
+    <label>Комментарий (необязательно)</label>
+    <textarea id="giftComment" placeholder="Напиши пожелание..."></textarea>
+  </div>
+  <button class="btn btn-primary" onclick="addGiftToCart()">Добавить в корзину</button>
+</div>
+
+<!-- КОРЗИНА -->
+<div class="section" id="tab-cart">
+  <div id="cartContent"></div>
+</div>
+
+<!-- ПРОФИЛЬ -->
+<div class="section" id="tab-profile">
+  <div class="section-title">Реферальная программа</div>
+  <div class="ref-box">
+    <label>Твоя ссылка — за каждого друга +10 руб.</label>
+    <div class="ref-link" id="refLink" onclick="copyRef()">Загрузка...</div>
+  </div>
+  <button class="btn btn-secondary" onclick="copyRef()">📋 Скопировать ссылку</button>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+const tg = window.Telegram.WebApp;
+tg.ready();
+tg.expand();
+
+const BOT_USERNAME = 'fren_gifts_watcher_bot';
+const userId = tg.initDataUnsafe?.user?.id || 0;
+const username = tg.initDataUnsafe?.user?.username || '';
+
+const GIFTS = [
+  "Мишка 1 Мая", "Мишка Пасха", "Мишка 1 Апреля",
+  "Мишка с золотом", "Мишка 8 Марта розовый",
+  "Мишка 8 Марта белый", "Мишка НГ", "Ёлка"
+];
+
+let cart = JSON.parse(localStorage.getItem('cart') || '[]');
+let selectedStars = null;
+let selectedGift = null;
+
+// Init
+document.getElementById('refLink').textContent = `https://t.me/${BOT_USERNAME}?start=ref_${userId}`;
+renderGifts();
+renderCart();
+updateBalance();
+
+function updateBalance() {
+  const balance = parseFloat(localStorage.getItem('balance') || '0');
+  document.getElementById('balanceAmount').textContent = balance + ' руб.';
+}
+
+function switchTab(name) {
+  document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  document.getElementById('tab-' + name).classList.add('active');
+  event.target.classList.add('active');
+  if (name === 'cart') renderCart();
+}
+
+function renderGifts() {
+  const grid = document.getElementById('giftsGrid');
+  grid.innerHTML = '';
+  GIFTS.forEach((name, i) => {
+    const div = document.createElement('div');
+    div.className = 'card';
+    div.innerHTML = `<div class="name">${name}</div><div class="price">70 руб.</div><div class="badge">✓</div>`;
+    div.onclick = () => selectGift(div, name, i + 1);
+    grid.appendChild(div);
+  });
+}
+
+function selectStars(el, amount, price) {
+  document.querySelectorAll('#tab-stars .card').forEach(c => c.classList.remove('selected'));
+  el.classList.add('selected');
+  selectedStars = { amount, price };
+}
+
+function selectGift(el, name, num) {
+  document.querySelectorAll('#tab-gifts .card').forEach(c => c.classList.remove('selected'));
+  el.classList.add('selected');
+  selectedGift = { name, num };
+}
+
+function addStarsToCart() {
+  if (!selectedStars) { showToast('Выбери количество звёзд'); return; }
+  const target = document.getElementById('starsTarget').value.trim().replace('@', '');
+  const item = {
+    type: 'stars',
+    name: `${selectedStars.amount} ⭐️${target ? ' для @' + target : ''}`,
+    price: selectedStars.price,
+    target: target || username
+  };
+  cart.push(item);
+  saveCart();
+  showToast('✅ Добавлено в корзину!');
+  selectedStars = null;
+  document.querySelectorAll('#tab-stars .card').forEach(c => c.classList.remove('selected'));
+  document.getElementById('starsTarget').value = '';
+}
+
+function addGiftToCart() {
+  if (!selectedGift) { showToast('Выбери подарок'); return; }
+  const target = document.getElementById('giftTarget').value.trim().replace('@', '');
+  const comment = document.getElementById('giftComment').value.trim();
+  const item = {
+    type: 'gift',
+    name: `${selectedGift.name}${target ? ' для @' + target : ''}`,
+    giftName: selectedGift.name,
+    giftNum: selectedGift.num,
+    price: 70,
+    target: target || username,
+    comment
+  };
+  cart.push(item);
+  saveCart();
+  showToast('✅ Добавлено в корзину!');
+  selectedGift = null;
+  document.querySelectorAll('#tab-gifts .card').forEach(c => c.classList.remove('selected'));
+  document.getElementById('giftTarget').value = '';
+  document.getElementById('giftComment').value = '';
+}
+
+function saveCart() { localStorage.setItem('cart', JSON.stringify(cart)); }
+
+function renderCart() {
+  const el = document.getElementById('cartContent');
+  if (!cart.length) {
+    el.innerHTML = '<div class="cart-empty">🛒 Корзина пуста</div>';
+    return;
+  }
+  const total = cart.reduce((s, i) => s + i.price, 0);
+  let html = '';
+  cart.forEach((item, idx) => {
+    html += `<div class="cart-item">
+      <div>
+        <div class="item-name">${item.name}</div>
+      </div>
+      <div style="display:flex;align-items:center">
+        <div class="item-price">${item.price} руб.</div>
+        <button class="remove" onclick="removeFromCart(${idx})">✕</button>
+      </div>
+    </div>`;
+  });
+  html += `<div class="cart-total"><span>Итого</span><span>${total} руб.</span></div>`;
+  html += `<button class="btn btn-primary" onclick="payWithBalance()">💰 Оплатить с баланса</button>`;
+  html += `<button class="btn btn-secondary" onclick="payWithCard()">💳 Оплатить картой</button>`;
+  html += `<button class="btn btn-danger" onclick="clearCart()">🗑 Очистить</button>`;
+  el.innerHTML = html;
+}
+
+function removeFromCart(idx) {
+  cart.splice(idx, 1);
+  saveCart();
+  renderCart();
+}
+
+function clearCart() {
+  cart = [];
+  saveCart();
+  renderCart();
+}
+
+function payWithBalance() {
+  const total = cart.reduce((s, i) => s + i.price, 0);
+  const balance = parseFloat(localStorage.getItem('balance') || '0');
+  if (balance < total) {
+    showToast(`❌ Недостаточно средств (${balance} руб.)`);
+    return;
+  }
+  const data = JSON.stringify({ action: 'pay_balance', cart, total, userId, username });
+  tg.sendData(data);
+  localStorage.setItem('balance', (balance - total).toString());
+  cart = [];
+  saveCart();
+  renderCart();
+  updateBalance();
+  showToast('✅ Оплачено с баланса!');
+}
+
+function payWithCard() {
+  const total = cart.reduce((s, i) => s + i.price, 0);
+  const data = JSON.stringify({ action: 'pay_card', cart, total, userId, username });
+  tg.sendData(data);
+  showToast('✅ Запрос отправлен!');
+  cart = [];
+  saveCart();
+  renderCart();
+}
+
+function copyRef() {
+  const link = `https://t.me/${BOT_USERNAME}?start=ref_${userId}`;
+  navigator.clipboard.writeText(link).then(() => showToast('✅ Ссылка скопирована!'));
+}
+
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 2500);
+}
+</script>
+</body>
+</html>
