@@ -485,9 +485,8 @@ function confirmPayCard() {
   tg.sendData(data);
   cart = [];
   saveCart();
-  renderCart();
   document.getElementById('payCardModal').style.display = 'none';
-  showToast('✅ Запрос отправлен! Ожидай подтверждения.');
+  tg.close();
 }
 
 function copyRef() {
@@ -512,8 +511,7 @@ function requestProfileTopup() {
 function confirmProfileTopup() {
   const data = JSON.stringify({ action: 'topup_request', amount: profileTopupValue, userId, username });
   tg.sendData(data);
-  document.getElementById('profileCardBlock').style.display = 'none';
-  showToast('✅ Запрос отправлен! Ожидай подтверждения.');
+  tg.close();
 }
 
 function showTopup() {
@@ -540,8 +538,7 @@ function copyCard() {
 function confirmTopup() {
   const data = JSON.stringify({ action: 'topup_request', amount: topupAmountValue, userId, username });
   tg.sendData(data);
-  hideTopupCard();
-  showToast('✅ Запрос отправлен! Ожидай подтверждения.');
+  tg.close();
 }
 
 function showToast(msg) {
